@@ -1,16 +1,42 @@
-# React + Vite
+# Sejuk Sejuk Ops 🧊
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Internal operations system for Sejuk Sejuk Service Sdn Bhd — an air-conditioning installation, servicing and repair company.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Layer | Tool |
+|---|---|
+| Frontend | React + Vite |
+| Styling | Tailwind CSS v3 |
+| Database | Supabase (PostgreSQL) |
+| Deployment | Vercel |
 
-## React Compiler
+## Modules
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Module 1** — Admin Portal (create & assign orders)
+- **Module 2** — Technician Portal (view & complete jobs)
+- **Module 3** — WhatsApp Notification Trigger
+- **Bonus** — KPI Dashboard
+- **AI Module** — Operations Query Window
 
-## Expanding the ESLint configuration
+## Workflow
+```
+New Order → Assigned → In Progress → Job Done → Reviewed → Closed
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Roles
+
+- **Admin** — creates orders, assigns technicians
+- **Technician** — views assigned jobs, records completion
+- **Manager** — reviews completed jobs, views KPI
+
+## Setup
+
+1. Clone the repo
+2. Copy `.env.example` to `.env` and fill in your Supabase credentials
+3. Run `npm install`
+4. Run `npm run dev`
+
+## Status
+
+🚧 In development
