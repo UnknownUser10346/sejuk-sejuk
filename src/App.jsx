@@ -1,25 +1,18 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import Login from './pages/Login'
 
 export default function App() {
-  const [status, setStatus] = useState('Connecting...')
-
-  useEffect(() => {
-    supabase.from('profiles').select('count').then(({ error }) => {
-      if (error) {
-        setStatus('⚠️ Connected but no tables yet: ' + error.message)
-      } else {
-        setStatus('✅ Supabase connected!')
-      }
-    })
-  }, [])
-
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-blue-600 mb-4">Sejuk Sejuk Ops 🧊</h1>
-        <p className="text-gray-600 text-lg">{status}</p>
-      </div>
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/admin" element={<div className="p-8 text-2xl font-bold">Admin Dashboard — Coming Soon</div>} />
+          <Route path="/technician" element={<div className="p-8 text-2xl font-bold">Technician Portal — Coming Soon</div>} />
+          <Route path="/manager" element={<div className="p-8 text-2xl font-bold">Manager Portal — Coming Soon</div>} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
