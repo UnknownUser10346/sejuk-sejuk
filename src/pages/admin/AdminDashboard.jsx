@@ -4,20 +4,20 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 
 const serviceLabel = {
-    servicing:    'AC Servicing',
-    installation: 'AC Installation',
-    gas_refill:   'Gas Refill',
-    repair:       'Repair',
-    cleaning:     'Cleaning',
-  }
+  servicing:    'AC Servicing',
+  installation: 'AC Installation',
+  gas_refill:   'Gas Refill',
+  repair:       'Repair',
+  cleaning:     'Cleaning',
+}
 
 const statusBadge = {
-  new: { label: 'Pending', className: 'bg-amber-100 text-amber-800' },
-  assigned: { label: 'Assigned', className: 'bg-purple-100 text-purple-800' },
+  new:         { label: 'Pending',     className: 'bg-amber-100 text-amber-800' },
+  assigned:    { label: 'Assigned',    className: 'bg-purple-100 text-purple-800' },
   in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-800' },
-  job_done: { label: 'Completed', className: 'bg-green-100 text-green-800' },
-  reviewed: { label: 'Reviewed', className: 'bg-teal-100 text-teal-800' },
-  closed: { label: 'Closed', className: 'bg-gray-100 text-gray-600' },
+  job_done:    { label: 'Completed',   className: 'bg-green-100 text-green-800' },
+  reviewed:    { label: 'Reviewed',    className: 'bg-teal-100 text-teal-800' },
+  closed:      { label: 'Closed',      className: 'bg-gray-100 text-gray-600' },
 }
 
 export default function AdminDashboard() {
@@ -30,20 +30,33 @@ export default function AdminDashboard() {
   useEffect(() => { fetchOrders() }, [])
 
   const fetchOrders = async () => {
+    const today = new Date().toISOString().split('T')[0]
+
+    // Fetch recent 20 for the table
     const { data } = await supabase
       .from('orders')
       .select('*, assigned_technician:profiles!orders_assigned_technician_id_fkey(name)')
       .order('created_at', { ascending: false })
       .limit(20)
 
-    if (data) {
-      setOrders(data)
-      const today = new Date().toISOString().split('T')[0]
+    if (data) setOrders(data)
+
+    // Fetch all orders for accurate stats
+    const { data: all } = await supabase
+      .from('orders')
+      .select('status, completed_at, updated_at')
+
+    if (all) {
       setStats({
-        total: data.length,
-        pending: data.filter(o => o.status === 'new').length,
-        inProgress: data.filter(o => o.status === 'in_progress').length,
-        completedToday: data.filter(o => o.status === 'job_done' && o.updated_at?.startsWith(today)).length,
+        total:          all.length,
+        pending:        all.filter(o => o.status === 'new').length,
+        inProgress:     all.filter(o => o.status === 'in_progress').length,
+        completedToday: all.filter(o =>
+          o.status === 'job_done' && (
+            o.completed_at?.startsWith(today) ||
+            (!o.completed_at && o.updated_at?.startsWith(today))
+          )
+        ).length,
       })
     }
   }
@@ -56,22 +69,16 @@ export default function AdminDashboard() {
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Topbar */}
-      <div className="flex items-center gap-3 px-5 py-3 bg-white border-b border-gray-200">
-        <div className="flex-1">
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200">
+        <div>
           <h1 className="text-sm font-medium text-gray-800">Dashboard</h1>
           <p className="text-xs text-gray-400">
             {new Date().toLocaleDateString('en-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <div className="text-xs text-gray-500">
-          Logged in as <span className="font-medium text-gray-800">{user?.name}</span>
-        </div>
-        <button
-          onClick={() => navigate('/admin/orders/new')}
-          className="bg-[#0e7fa8] text-white text-xs px-3 py-2 rounded-lg hover:bg-[#0c6d92]"
-        >
-          + New Order
-        </button>
+        <p className="text-xs text-gray-500">
+          Logged in as <span className="font-medium text-gray-800">{user?.name || '—'}</span>
+        </p>
       </div>
 
       {/* Content */}
@@ -79,10 +86,10 @@ export default function AdminDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Total Orders', value: stats.total, color: 'text-gray-800' },
-            { label: 'Pending Assignment', value: stats.pending, color: 'text-amber-600' },
-            { label: 'In Progress', value: stats.inProgress, color: 'text-blue-700' },
-            { label: 'Completed Today', value: stats.completedToday, color: 'text-green-700' },
+            { label: 'Total Orders',       value: stats.total,          color: 'text-gray-800' },
+            { label: 'Pending Assignment', value: stats.pending,        color: 'text-amber-600' },
+            { label: 'In Progress',        value: stats.inProgress,     color: 'text-blue-700' },
+            { label: 'Completed Today',    value: stats.completedToday, color: 'text-green-700' },
           ].map(s => (
             <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-4">
               <p className="text-xs text-gray-400 mb-1">{s.label}</p>
@@ -123,7 +130,7 @@ export default function AdminDashboard() {
                     >
                       <td className="px-4 py-2 text-[#0e7fa8] font-medium text-xs">{order.order_no}</td>
                       <td className="px-4 py-2 text-xs text-gray-800">{order.customer_name}</td>
-                      <td className="px-4 py-2 text-xs text-gray-600 capitalize">{order.service_type}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600">{serviceLabel[order.service_type] || order.service_type}</td>
                       <td className="px-4 py-2">
                         <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusBadge[order.status]?.className}`}>
                           {statusBadge[order.status]?.label}
