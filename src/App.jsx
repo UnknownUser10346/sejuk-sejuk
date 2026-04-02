@@ -11,6 +11,9 @@ import TechnicianLayout from './pages/technician/TechnicianLayout'
 import TechnicianJobs from './pages/technician/TechnicianJobs'
 import TechnicianJobDetail from './pages/technician/TechnicianJobDetail'
 import TechnicianProfile from './pages/technician/TechnicianProfile'
+import ManagerLayout from './pages/manager/ManagerLayout'
+import ManagerJobs from './pages/manager/ManagerJobs'
+import ManagerJobDetail from './pages/manager/ManagerJobDetail'
 
 function AdminLayout({ children }) {
   const { user, logout } = useAuth()
@@ -115,6 +118,10 @@ function TechnicianLayoutWrapper({ children }) {
   return <TechnicianLayout>{children}</TechnicianLayout>
 }
 
+function ManagerLayoutWrapper({ children }) {
+  return <ManagerLayout>{children}</ManagerLayout>
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -178,9 +185,15 @@ export default function App() {
           } />
 
           {/* Manager — role: manager only */}
-          <Route path="/manager" element={
+          <Route path="/manager" element={<Navigate to="/manager/jobs" replace />} />
+          <Route path="/manager/jobs" element={
             <ProtectedRoute allowedRole="manager">
-              <div className="p-8 text-2xl font-bold">Manager Portal — Coming Soon</div>
+              <ManagerLayout><ManagerJobs /></ManagerLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/manager/jobs/:id" element={
+            <ProtectedRoute allowedRole="manager">
+              <ManagerLayout><ManagerJobDetail /></ManagerLayout>
             </ProtectedRoute>
           } />
 
