@@ -22,6 +22,37 @@ const serviceLabel = {
 
 const PAYMENT_METHODS = ['Cash', 'Online Transfer', 'QR Pay', 'Card']
 
+const formatPhoneForWhatsApp = (phone) => {
+  if (!phone) return null
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = '60' + digits.slice(1)
+  if (!digits.startsWith('60')) digits = '60' + digits
+  return digits
+}
+
+const buildWhatsAppUrl = (phone, customerName, orderNo, technicianName, completedAt) => {
+  const formattedPhone = formatPhoneForWhatsApp(phone)
+  if (!formattedPhone) return null
+
+  const time = completedAt
+    ? new Date(completedAt).toLocaleString('en-MY', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : new Date().toLocaleString('en-MY', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+
+  const message =
+    `Hi *${customerName}*,\n\n` +
+    `Job *${orderNo}* has been completed by *${technicianName}* at ${time}.\n\n` +
+    `Please check and leave feedback.\n` +
+    `Thank you!`
+
+  return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+}
+
 export default function TechnicianJobDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -32,6 +63,7 @@ export default function TechnicianJobDetail() {
   const [notFound, setNotFound] = useState(false)
   const [starting, setStarting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [technicianName, setTechnicianName] = useState('')
 
   const [form, setForm] = useState({
     work_done: '',
@@ -45,14 +77,16 @@ export default function TechnicianJobDetail() {
   const [showPayment, setShowPayment] = useState(false)
 
   useEffect(() => {
+    // ✅ Fetch job + technician name via JOIN (column is `name`, not `full_name`)
     supabase
       .from('orders')
-      .select('*')
+      .select('*, technician:profiles!assigned_technician_id(name)')
       .eq('id', id)
       .single()
       .then(({ data, error }) => {
         if (error || !data) { setNotFound(true); setFetching(false); return }
         setJob(data)
+        if (data.technician?.name) setTechnicianName(data.technician.name)
         if (data.work_done) {
           setForm({
             work_done:      data.work_done ?? '',
@@ -90,7 +124,6 @@ export default function TechnicianJobDetail() {
     return Object.keys(newErrors).length === 0
   }
 
-  // Mark as In Progress
   const handleStartJob = async () => {
     if (job.status !== 'assigned') return
     setStarting(true)
@@ -103,7 +136,6 @@ export default function TechnicianJobDetail() {
     if (data?.[0]) setJob(data[0])
   }
 
-  // Upload files to Supabase Storage
   const uploadFiles = async () => {
     const urls = []
     for (const file of files) {
@@ -117,13 +149,14 @@ export default function TechnicianJobDetail() {
     return urls
   }
 
-  // Submit completion
   const handleSubmit = async () => {
     if (!validate()) return
     setSubmitting(true)
 
     let photoUrls = []
     if (files.length > 0) photoUrls = await uploadFiles()
+
+    const completedAt = new Date().toISOString()
 
     const { data, error } = await supabase
       .from('orders')
@@ -135,7 +168,7 @@ export default function TechnicianJobDetail() {
         payment_amount: form.payment_amount ? parseFloat(form.payment_amount) : null,
         payment_method: form.payment_method || null,
         photo_urls:     photoUrls.length > 0 ? photoUrls : null,
-        completed_at:   new Date().toISOString(),
+        completed_at:   completedAt,
         status:         'job_done',
       })
       .eq('id', id)
@@ -148,10 +181,22 @@ export default function TechnicianJobDetail() {
       return
     }
 
-    if (data?.[0]) setJob(data[0])
+    if (data?.[0]) {
+      setJob(data[0])
+
+      // 🟢 Auto-open WhatsApp notification to customer
+      const name = technicianName || user?.user_metadata?.name || user?.email || 'Technician'
+      const waUrl = buildWhatsAppUrl(
+        data[0].customer_phone,
+        data[0].customer_name,
+        data[0].order_no,
+        name,
+        completedAt
+      )
+      if (waUrl) window.open(waUrl, '_blank')
+    }
   }
 
-  // ── Loading / Not found ──
   if (fetching) return (
     <div className="flex items-center justify-center py-20">
       <p className="text-xs text-gray-400">Loading job...</p>
@@ -170,7 +215,6 @@ export default function TechnicianJobDetail() {
 
   const isDone = ['job_done', 'reviewed', 'closed'].includes(job.status)
 
-  // ── Completed view ──
   if (isDone) return (
     <div className="p-4">
       <button onClick={() => navigate('/technician/jobs')}
@@ -217,17 +261,14 @@ export default function TechnicianJobDetail() {
     </div>
   )
 
-  // ── Job Detail + Form ──
   return (
     <div className="p-4">
-      {/* Back */}
       <button onClick={() => navigate('/technician/jobs')}
         className="flex items-center gap-1 text-xs text-gray-500 mb-4">
         <svg viewBox="0 0 24 24" className="w-4 h-4 fill-gray-400"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         Back to Jobs
       </button>
 
-      {/* Job info card */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium text-[#0e7fa8]">{job.order_no}</span>
@@ -258,7 +299,6 @@ export default function TechnicianJobDetail() {
         )}
       </div>
 
-      {/* ── ASSIGNED: show Start Job button only, no form yet ── */}
       {job.status === 'assigned' && (
         <div>
           <button
@@ -274,12 +314,10 @@ export default function TechnicianJobDetail() {
         </div>
       )}
 
-      {/* ── IN PROGRESS: show full completion form ── */}
       {job.status === 'in_progress' && (
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Completion</p>
 
-          {/* Work Done + Charges + Remarks */}
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Work Done <span className="text-red-500">*</span>
@@ -329,7 +367,6 @@ export default function TechnicianJobDetail() {
             </div>
           </div>
 
-          {/* Photo Upload */}
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-gray-700">Photos / Files</label>
@@ -366,7 +403,6 @@ export default function TechnicianJobDetail() {
             )}
           </div>
 
-          {/* Payment (optional collapsible) */}
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <button
               onClick={() => setShowPayment(!showPayment)}
@@ -407,20 +443,18 @@ export default function TechnicianJobDetail() {
             )}
           </div>
 
-          {/* Technician + Timestamp */}
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-[#0e7fa8] rounded-full flex items-center justify-center text-white text-xs font-medium">
-                {user?.name?.charAt(0) || 'T'}
+                {(technicianName || user?.user_metadata?.name)?.charAt(0) || 'T'}
               </div>
-              <span className="text-xs font-medium text-gray-700">{user?.name || 'Technician'}</span>
+              <span className="text-xs font-medium text-gray-700">{technicianName || user?.user_metadata?.name || 'Technician'}</span>
             </div>
             <span className="text-xs text-gray-400">
               {new Date().toLocaleString('en-MY', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={submitting}
@@ -428,6 +462,10 @@ export default function TechnicianJobDetail() {
           >
             {submitting ? 'Submitting...' : '✓ Mark Job as Done'}
           </button>
+
+          <p className="text-xs text-center text-gray-400">
+            📲 WhatsApp will open automatically to notify the customer
+          </p>
         </div>
       )}
     </div>
