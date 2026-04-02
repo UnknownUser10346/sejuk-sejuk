@@ -7,6 +7,8 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
 import NewOrder from './pages/admin/NewOrder'
 import EditOrder from './pages/admin/EditOrder'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminBranches from './pages/admin/AdminBranches'
 import TechnicianLayout from './pages/technician/TechnicianLayout'
 import TechnicianJobs from './pages/technician/TechnicianJobs'
 import TechnicianJobDetail from './pages/technician/TechnicianJobDetail'
@@ -29,15 +31,24 @@ function AdminLayout({ children }) {
     { label: 'Orders',    icon: '☰', path: '/admin/orders' },
   ]
 
-  const reportItems = [
+  const managementItems = [
     {
-      label: 'Technicians',
+      label: 'Users',
       icon: (
         <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0">
-          <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.2L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+          <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
         </svg>
       ),
-      path: '/admin/technicians',
+      path: '/admin/users',
+    },
+    {
+      label: 'Branches',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        </svg>
+      ),
+      path: '/admin/branches',
     },
   ]
 
@@ -76,8 +87,8 @@ function AdminLayout({ children }) {
             </button>
           ))}
 
-          {!collapsed && <p className="text-white/40 text-xs uppercase tracking-wider px-2 py-2 mt-2">Reports</p>}
-          {reportItems.map(item => (
+          {!collapsed && <p className="text-white/40 text-xs uppercase tracking-wider px-2 py-2 mt-2">Management</p>}
+          {managementItems.map(item => (
             <button key={item.label} onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg mb-1 text-left transition-all ${
                 isActive(item.path) ? 'bg-white/20 text-white font-medium' : 'text-white/80 hover:bg-white/12 hover:text-white'
@@ -102,9 +113,17 @@ function AdminLayout({ children }) {
   )
 }
 
-function AdminLayoutWrapper({ children }) { return <AdminLayout>{children}</AdminLayout> }
-function TechnicianLayoutWrapper({ children }) { return <TechnicianLayout>{children}</TechnicianLayout> }
-function ManagerLayoutWrapper({ children }) { return <ManagerLayout>{children}</ManagerLayout> }
+function AdminLayoutWrapper({ children }) {
+  return <AdminLayout>{children}</AdminLayout>
+}
+
+function TechnicianLayoutWrapper({ children }) {
+  return <TechnicianLayout>{children}</TechnicianLayout>
+}
+
+function ManagerLayoutWrapper({ children }) {
+  return <ManagerLayout>{children}</ManagerLayout>
+}
 
 export default function App() {
   return (
@@ -115,29 +134,72 @@ export default function App() {
           <Route path="/" element={<Login />} />
 
           {/* Admin */}
-          <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminDashboard /></AdminLayoutWrapper></ProtectedRoute>} />
-          <Route path="/admin/orders" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminOrders /></AdminLayoutWrapper></ProtectedRoute>} />
-          <Route path="/admin/orders/new" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><NewOrder /></AdminLayoutWrapper></ProtectedRoute>} />
-          <Route path="/admin/orders/:id" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper></ProtectedRoute>} />
-          <Route path="/admin/technicians" element={
+          <Route path="/admin" element={
             <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper>
-                <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Technicians — coming soon</div>
-              </AdminLayoutWrapper>
+              <AdminLayoutWrapper><AdminDashboard /></AdminLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/orders" element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminLayoutWrapper><AdminOrders /></AdminLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/orders/new" element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminLayoutWrapper><NewOrder /></AdminLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/orders/:id" element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/users" element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminLayoutWrapper><AdminUsers /></AdminLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/branches" element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminLayoutWrapper><AdminBranches /></AdminLayoutWrapper>
             </ProtectedRoute>
           } />
 
           {/* Technician */}
           <Route path="/technician" element={<Navigate to="/technician/jobs" replace />} />
-          <Route path="/technician/jobs" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianJobs /></TechnicianLayoutWrapper></ProtectedRoute>} />
-          <Route path="/technician/jobs/:id" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianJobDetail /></TechnicianLayoutWrapper></ProtectedRoute>} />
-          <Route path="/technician/profile" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianProfile /></TechnicianLayoutWrapper></ProtectedRoute>} />
+          <Route path="/technician/jobs" element={
+            <ProtectedRoute allowedRole="technician">
+              <TechnicianLayoutWrapper><TechnicianJobs /></TechnicianLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/technician/jobs/:id" element={
+            <ProtectedRoute allowedRole="technician">
+              <TechnicianLayoutWrapper><TechnicianJobDetail /></TechnicianLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/technician/profile" element={
+            <ProtectedRoute allowedRole="technician">
+              <TechnicianLayoutWrapper><TechnicianProfile /></TechnicianLayoutWrapper>
+            </ProtectedRoute>
+          } />
 
           {/* Manager */}
           <Route path="/manager" element={<Navigate to="/manager/jobs" replace />} />
-          <Route path="/manager/kpi" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><KpiDashboard /></ManagerLayoutWrapper></ProtectedRoute>} />
-          <Route path="/manager/jobs" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><ManagerJobs /></ManagerLayoutWrapper></ProtectedRoute>} />
-          <Route path="/manager/jobs/:id" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><ManagerJobDetail /></ManagerLayoutWrapper></ProtectedRoute>} />
+          <Route path="/manager/kpi" element={
+            <ProtectedRoute allowedRole="manager">
+              <ManagerLayoutWrapper><KpiDashboard /></ManagerLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/manager/jobs" element={
+            <ProtectedRoute allowedRole="manager">
+              <ManagerLayoutWrapper><ManagerJobs /></ManagerLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/manager/jobs/:id" element={
+            <ProtectedRoute allowedRole="manager">
+              <ManagerLayoutWrapper><ManagerJobDetail /></ManagerLayoutWrapper>
+            </ProtectedRoute>
+          } />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
