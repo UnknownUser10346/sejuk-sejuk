@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
+// AiAssistant.jsx
+// Frontend component — sends questions to /api/ai-assistant (serverless function)
+// No API keys or direct database access on the frontend
 
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || ''
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+import { useState, useRef, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
 
 const SUGGESTED = [
   'How many jobs were completed this week?',
@@ -106,105 +106,16 @@ export default function AIAssistant() {
       text: `Hi ${user?.name?.split(' ')[0] || 'there'}! 👋 I'm your AI Assistant. Ask me anything about your branch's jobs, technicians, or revenue — in plain language.`,
     },
   ])
-  const [input, setInput] = useState('')
+  const [input, setInput]   = useState('')
   const [loading, setLoading] = useState(false)
-  const [noKey] = useState(!GROQ_API_KEY)
   const bottomRef = useRef(null)
-  const inputRef = useRef(null)
+  const inputRef  = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  // ─── Fetch branch data from Supabase ─────────────────────────────────────────
-  const fetchBranchData = async () => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('branch')
-      .eq('id', user.id)
-      .single()
-
-    const branch = profile?.branch
-    if (!branch) return { error: 'Branch not found for your profile.' }
-
-    const since = new Date()
-    since.setDate(since.getDate() - 90)
-
-    const { data: orders } = await supabase
-      .from('orders')
-      .select(`
-        order_no, customer_name, status, service_type, final_amount, payment_method,
-        scheduled_date, completed_at, rescheduled_count, postponed_count, branch,
-        technician:profiles!assigned_technician_id(name)
-      `)
-      .eq('branch', branch)
-      .gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false })
-
-    const { data: techs } = await supabase
-      .from('profiles')
-      .select('name, role')
-      .eq('branch', branch)
-      .eq('role', 'technician')
-
-    const statusCounts = {}
-    const techStats = {}
-    let totalRevenue = 0
-    const serviceTypes = {}
-
-    ;(orders || []).forEach(o => {
-      statusCounts[o.status] = (statusCounts[o.status] || 0) + 1
-      const tname = o.technician?.name || 'Unassigned'
-      if (!techStats[tname]) techStats[tname] = { jobs: 0, revenue: 0, rescheduled: 0, postponed: 0 }
-      techStats[tname].jobs += 1
-      techStats[tname].revenue += parseFloat(o.final_amount || 0)
-      techStats[tname].rescheduled += parseInt(o.rescheduled_count || 0)
-      techStats[tname].postponed += parseInt(o.postponed_count || 0)
-      totalRevenue += parseFloat(o.final_amount || 0)
-      if (o.service_type) serviceTypes[o.service_type] = (serviceTypes[o.service_type] || 0) + 1
-    })
-
-    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
-    const weeklyOrders = (orders || []).filter(o => o.completed_at && new Date(o.completed_at) >= weekAgo)
-    const weeklyRevenue = weeklyOrders.reduce((s, o) => s + parseFloat(o.final_amount || 0), 0)
-
-    const monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate() - 30)
-    const monthlyOrders = (orders || []).filter(o => o.completed_at && new Date(o.completed_at) >= monthAgo)
-    const monthlyRevenue = monthlyOrders.reduce((s, o) => s + parseFloat(o.final_amount || 0), 0)
-
-    return {
-      branch,
-      summary: {
-        totalOrders: orders?.length || 0,
-        totalRevenue: `RM ${totalRevenue.toFixed(2)}`,
-        statusBreakdown: statusCounts,
-        weeklyCompleted: weeklyOrders.length,
-        weeklyRevenue: `RM ${weeklyRevenue.toFixed(2)}`,
-        monthlyCompleted: monthlyOrders.length,
-        monthlyRevenue: `RM ${monthlyRevenue.toFixed(2)}`,
-        serviceTypeBreakdown: serviceTypes,
-        technicianStats: Object.fromEntries(
-          Object.entries(techStats).map(([k, v]) => [k, { ...v, revenue: `RM ${v.revenue.toFixed(2)}` }])
-        ),
-        technicianCount: techs?.length || 0,
-      },
-      orders: (orders || []).map(o => ({
-        order_no: o.order_no,
-        customer_name: o.customer_name,
-        status: o.status,
-        service_type: o.service_type,
-        technician: o.technician?.name || 'Unassigned',
-        amount: `RM ${parseFloat(o.final_amount || 0).toFixed(2)}`,
-        scheduled_date: o.scheduled_date,
-        completed_at: o.completed_at,
-        payment_method: o.payment_method,
-        rescheduled_count: o.rescheduled_count || 0,
-        postponed_count: o.postponed_count || 0,
-      })),
-    }
-  }
-
-  // ─── Send message to Groq ────────────────────────────────────────────────────
+  // ─── Send message to serverless function ─────────────────────────────────
   const sendMessage = async (question) => {
     if (!question.trim()) return
 
@@ -214,68 +125,27 @@ export default function AIAssistant() {
     setLoading(true)
 
     try {
-      const branchData = await fetchBranchData()
-
-      const systemPrompt = `You are an AI assistant for a field service management system.
-You have access to real-time branch data for branch: ${branchData.branch}.
-
-STATUS DEFINITIONS (very important — use these when answering):
-- "pending" = job has been assigned but not yet started
-- "in_progress" = technician is currently working on the job
-- "job_done" = technician has marked the job as done, and it is PENDING REVIEW by the manager
-- "reviewed" = manager has reviewed and approved the completed job
-- "cancelled" = job was cancelled
-
-So when the user asks about "pending review" jobs, they mean orders with status "job_done".
-
-SUMMARY:
-${JSON.stringify(branchData.summary, null, 2)}
-
-ORDERS (last 90 days):
-${JSON.stringify(branchData.orders, null, 2)}
-
-Answer questions based strictly on the data above. Be concise and helpful.
-If asked about specific orders, list their order_no and customer_name. 
-IMPORTANT: All currency amounts must be displayed in Malaysian Ringgit using the format "RM X,XXX.XX" — never use "$" or any other currency symbol.
-
-If the user asks something that is NOT related to the branch data, orders, technicians, or field service management, simply reply: "That question is not related to this system. I can only assist with branch orders, technicians, and job data."`
-
-      const history = updatedMessages
-        .filter(m => !m.isError)
-        .map(m => ({
-          role: m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.text,
-        }))
-
-      const response = await fetch(GROQ_API_URL, {
+      const response = await fetch('/api/ai-assistant', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...history,
-          ],
-          temperature: 0.4,
-          max_tokens: 1024,
+          question,
+          userId:  user?.id,
+          history: messages, // conversation history for context
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error?.message || 'Groq API error')
+        throw new Error(data.error || 'Something went wrong. Please try again.')
       }
 
-      const result = await response.json()
-      const answer = result.choices?.[0]?.message?.content || 'No response received.'
-      setMessages(prev => [...prev, { role: 'assistant', text: answer }])
+      setMessages(prev => [...prev, { role: 'assistant', text: data.answer }])
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        text: `⚠️ Error: ${err.message}. Please try again.`,
+        text: `⚠️ ${err.message}`,
         isError: true,
       }])
     } finally {
@@ -311,15 +181,6 @@ If the user asks something that is NOT related to the branch data, orders, techn
         </div>
       </div>
 
-      {/* No API key banner */}
-      {noKey && (
-        <div className="bg-amber-50 border-b border-amber-100 flex-shrink-0" style={{ padding: '10px 24px' }}>
-          <p className="text-xs text-amber-700 font-medium">
-            ⚠️ Groq API key not set. Add <code className="bg-amber-100 px-1 rounded">VITE_GROQ_API_KEY=gsk_...</code> to your <code className="bg-amber-100 px-1 rounded">.env</code> file and restart the dev server.
-          </p>
-        </div>
-      )}
-
       {/* Messages */}
       <div className="flex-1 overflow-y-auto" style={{ padding: '20px 24px' }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
@@ -333,7 +194,7 @@ If the user asks something that is NOT related to the branch data, orders, techn
                   <button
                     key={q}
                     onClick={() => sendMessage(q)}
-                    disabled={loading || noKey}
+                    disabled={loading}
                     className="text-xs bg-white border border-gray-200 text-gray-600 rounded-xl hover:border-[#0e7fa8] hover:text-[#0e7fa8] transition-colors disabled:opacity-40"
                     style={{ padding: '6px 12px' }}
                   >
@@ -390,14 +251,14 @@ If the user asks something that is NOT related to the branch data, orders, techn
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder={noKey ? 'Set your Groq API key in .env to start…' : 'Ask about jobs, revenue, technicians…'}
-              disabled={loading || noKey}
+              placeholder="Ask about jobs, revenue, technicians…"
+              disabled={loading}
               className="flex-1 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-300 outline-none focus:border-[#0e7fa8] focus:ring-2 focus:ring-[#0e7fa8]/10 disabled:opacity-50 disabled:bg-gray-50"
               style={{ padding: '10px 14px' }}
             />
             <button
               type="submit"
-              disabled={loading || !input.trim() || noKey}
+              disabled={loading || !input.trim()}
               className="w-10 h-10 rounded-xl bg-[#0e7fa8] flex items-center justify-center hover:bg-[#0c6d92] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
             >
               {loading ? (
