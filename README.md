@@ -2,7 +2,19 @@
 
 > A role-based internal operations system for managing air-conditioning service jobs, technician assignments, and business performance.
 
-🌐 **Live:** [sejuk-sejuk.vercel.app](https://sejuk-sejuk.vercel.app)
+🌐 **Live Demo:** [sejuk-sejuk.vercel.app](https://sejuk-sejuk.vercel.app)
+
+---
+
+## What I Built
+
+**Sejuk Sejuk Ops** is a full-stack internal operations web app for an air-conditioning service company. It replaces manual WhatsApp-based job coordination with a structured, role-based system.
+
+Three user roles — **Admin**, **Manager**, and **Technician** — each have their own dashboard and workflows:
+
+- **Admin** creates and assigns service orders, reschedules postponed jobs, and sends WhatsApp notifications to technicians
+- **Technician** views their assigned jobs, updates job status, and can postpone jobs with a reason
+- **Manager** reviews completed jobs, monitors team KPIs, and queries business data via an AI Assistant
 
 ---
 
@@ -12,9 +24,93 @@
 |---|---|
 | Frontend | React + Vite |
 | Styling | Tailwind CSS |
-| Backend / DB | Supabase (PostgreSQL + Realtime) |
-| AI Assistant | Groq API (LLaMA 3) |
+| Backend / Database | Supabase (PostgreSQL + Realtime) |
+| AI Assistant | Groq API (LLaMA 3) via Vercel serverless function |
 | Deployment | Vercel |
+| Notifications | WhatsApp click-to-chat (wa.me) |
+
+---
+
+## Architecture Decisions
+
+### 1. Supabase as Backend
+Supabase was chosen for its real-time capabilities, built-in auth, and PostgreSQL flexibility. Row-level security (RLS) controls data access per role without needing a custom backend server.
+
+### 2. Role-Based Routing
+Each role (admin, manager, technician) has its own layout and protected route group in React. Users are redirected based on their `role` field stored in the `profiles` table.
+
+### 3. Serverless Function for AI
+The AI Assistant uses a **Vercel serverless function** (`/api/ai-assistant.js`) to:
+- Accept a natural language question from the frontend
+- Query Supabase using the **service role key** (server-side only)
+- Send the data + question to **Groq (LLaMA 3)**
+- Return the answer to the frontend
+
+This keeps both the Groq API key and Supabase service role key fully hidden from the browser.
+
+### 4. WhatsApp Notifications (No API Cost)
+Instead of a paid SMS/WhatsApp API, notifications use **wa.me deep links** that open WhatsApp with a pre-filled message. This is zero-cost and works instantly on mobile.
+
+### 5. Postpone & Reschedule Workflow
+A dedicated `postponed` status was added to the order lifecycle. When a technician postpones a job, the admin receives a signal to reschedule. On reschedule, status auto-reverts to `assigned` and `rescheduled_count` increments — fully tracked in the database.
+
+---
+
+## How AI Was Integrated
+
+The AI Assistant is accessible to the **Manager** role and allows natural language queries about operations data.
+
+**Flow:**
+```
+Manager types question (e.g. "Who has the most postponed jobs?")
+        ↓
+Frontend POST → /api/ai-assistant (Vercel serverless)
+        ↓
+Serverless fetches relevant data from Supabase (orders, profiles)
+        ↓
+Data + question sent to Groq API (LLaMA 3 model)
+        ↓
+AI generates a natural language answer
+        ↓
+Response returned to frontend and displayed
+```
+
+**Security:**
+- `GROQ_API_KEY` — server-side only, never in frontend code
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side only, used only in the serverless function
+- Frontend only calls `/api/ai-assistant` — no direct AI or DB access from the browser
+
+---
+
+## Challenges & Assumptions
+
+### Challenges
+
+| Challenge | How It Was Solved |
+|---|---|
+| `postponed` status rejected by DB | The `orders_status_check` constraint was missing `postponed` — dropped and recreated to include it |
+| DB column names didn't match code | DB used `postponed_count` / `rescheduled_count` (with **d**) but code used without — all files updated to match DB |
+| KPI cards showing 0 for rescheduled/postponed | Date filter on KPI query excluded future-dated orders — removed date filter so all orders are counted |
+| AI key exposed on frontend | Reworked from direct Groq call in browser to a secure Vercel serverless function |
+| Technician WA button not appearing | Logic was tied to phone number presence — fixed to always show button after order save |
+
+### Assumptions
+
+- Each technician has a phone number stored in `profiles.phone` for WhatsApp notifications to work as direct links
+- The `branch` column stores branch name as plain text (not a foreign key)
+- `customer_address` is used as the address field (not `address`)
+- All users are created and assigned roles manually via Supabase (no public self-registration)
+
+---
+
+## Limitations
+
+- **WhatsApp notifications are manual** — admin/technician must tap the pre-filled WA link; there is no automated message sending (would require WhatsApp Business API)
+- **No push notifications** — the app has no real-time alerts; users must open the app to see updates
+- **AI context is limited** — the AI Assistant only has access to orders and profiles data; it cannot answer questions about inventory, invoices, or external data
+- **No file uploads** — job reports or photos cannot be attached to orders in the current version
+- **Role management is manual** — roles are assigned directly in Supabase; there is no in-app user management UI for admins
+- **Single language** — the UI is in English; no multilingual support currently
 
 ---
 
@@ -36,7 +132,7 @@
 ### 📊 Manager
 - Review completed jobs
 - KPI Dashboard with real-time stats:
-  - Total jobs, revenue, rescheduled, postponed
+  - Total jobs, revenue, rescheduled, postponed counts
   - Per-technician breakdown (jobs, revenue, rescheduled, postponed)
   - Leaderboard
 - AI Assistant for natural language queries on job data
@@ -50,46 +146,6 @@ new → assigned → in_progress → job_done → reviewed → closed
                       ↓
                   postponed → (admin reschedules) → assigned
 ```
-
----
-
-## Key Database Columns (orders table)
-
-| Column | Type | Notes |
-|---|---|---|
-| `status` | text | new / assigned / in_progress / postponed / job_done / reviewed / closed |
-| `assigned_technician_id` | uuid | FK to profiles |
-| `scheduled_date` | date | Job date |
-| `postpone_reason` | text | Filled by technician |
-| `postponed_at` | timestamptz | When postponed |
-| `postponed_count` | int | Total postpones per order |
-| `rescheduled_count` | int | Total reschedules per order |
-| `customer_address` | text | Customer location |
-| `branch` | text | Service branch |
-
----
-
-## WhatsApp Notifications
-
-Notifications are sent via **WhatsApp click-to-chat links** (wa.me). No third-party API required.
-
-| Trigger | Recipient |
-|---|---|
-| New order created & assigned | Technician |
-| Order rescheduled by admin | Technician |
-| Job marked done by technician | Manager |
-
-Technician phone numbers are stored in the `profiles` table (`phone` column).
-
----
-
-## AI Assistant
-
-The AI Assistant is powered by **Groq (LLaMA 3)** via a secure Vercel serverless function.
-
-- Frontend calls `/api/ai-assistant` — no API keys exposed in browser
-- Serverless function queries Supabase with the service role key (server-side only)
-- Supports natural language questions about jobs, technicians, and performance
 
 ---
 
@@ -161,19 +217,17 @@ git push
 
 ### 3. Add Environment Variables in Vercel
 
-| Key | Value |
+| Key | Notes |
 |---|---|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
-| `GROQ_API_KEY` | Your Groq API key |
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service_role key *(keep secret)* |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+| `GROQ_API_KEY` | Groq API key — **no VITE_ prefix** |
+| `SUPABASE_URL` | Supabase project URL — **no VITE_ prefix** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role key — **keep secret, no VITE_ prefix** |
 
 ### 4. Deploy
 
-Click **Deploy** — your app will be live at `your-project.vercel.app`.
-
-> After adding env vars to an existing deployment, go to **Deployments → Redeploy** to apply them.
+Click **Deploy** — live at `your-project.vercel.app`. Future pushes to `main` auto-deploy. ✅
 
 ---
 
