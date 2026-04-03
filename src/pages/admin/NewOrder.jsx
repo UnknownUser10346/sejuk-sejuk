@@ -26,6 +26,22 @@ const emptyForm = () => ({
   admin_notes: '',
 })
 
+const serviceLabel = {
+  servicing:    'AC Servicing',
+  installation: 'AC Installation',
+  gas_refill:   'Gas Refill',
+  repair:       'Repair',
+  cleaning:     'Cleaning',
+}
+
+const formatPhoneForWa = (phone) => {
+  if (!phone) return null
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = '60' + digits.slice(1)
+  if (!digits.startsWith('60')) digits = '60' + digits
+  return digits
+}
+
 export default function NewOrder() {
   const navigate = useNavigate()
   const [technicians, setTechnicians] = useState([])
@@ -34,6 +50,10 @@ export default function NewOrder() {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submittedOrder, setSubmittedOrder] = useState(null)
+
+  // ── Task 4: Technician WA notification ──────────────────────
+  const [techWaUrl, setTechWaUrl] = useState(null)
+  // ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     supabase.from('profiles').select('*').eq('role', 'technician')
@@ -79,7 +99,7 @@ export default function NewOrder() {
         service_type:           form.service_type,
         quoted_price:           parseFloat(form.quoted_price),
         assigned_technician_id: form.assigned_technician_id || null,
-        branch:                 form.branch || null,   // ← save branch
+        branch:                 form.branch || null,
         admin_notes:            form.admin_notes,
         status:                 form.assigned_technician_id ? 'assigned' : 'new',
       }])
@@ -95,6 +115,33 @@ export default function NewOrder() {
 
     setSubmittedOrder(data[0])
     setSubmitted(true)
+
+    // 🔔 Task 4: Build technician WA notification link
+    if (form.assigned_technician_id) {
+      const { data: techProfile } = await supabase
+        .from('profiles')
+        .select('name, phone')
+        .eq('id', form.assigned_technician_id)
+        .single()
+
+      const svc = serviceLabel[form.service_type] || form.service_type
+      const msg =
+        `Hi *${techProfile?.name || 'Technician'}*,\n\n` +
+        `A new job *${data[0].order_no}* has been assigned to you.\n` +
+        `Customer: ${form.customer_name}\n` +
+        `Service: ${svc}\n` +
+        `Date: ${form.scheduled_date}\n` +
+        `Address: ${form.customer_address}\n\n` +
+        `Please check your job list.`
+
+      const phone = formatPhoneForWa(techProfile?.phone)
+      if (phone) {
+        setTechWaUrl(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`)
+      } else {
+        // No phone on profile — still show button with generic WA link
+        setTechWaUrl(`https://wa.me/?text=${encodeURIComponent(msg)}`)
+      }
+    }
   }
 
   const handleReset = () => {
@@ -168,8 +215,20 @@ export default function NewOrder() {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-4">
-              <button onClick={() => { setSubmitted(false); handleReset() }}
+            {/* 🔔 Task 4: Notify Technician button */}
+            {techWaUrl && (
+              <a
+                href={techWaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white rounded-xl text-sm font-medium active:scale-[0.98] transition-all"
+              >
+                📲 Notify Technician via WhatsApp
+              </a>
+            )}
+
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => { setSubmitted(false); setTechWaUrl(null); handleReset() }}
                 className="flex-1 py-2 border border-gray-300 rounded-lg text-xs hover:bg-gray-50">
                 + Create Another Order
               </button>

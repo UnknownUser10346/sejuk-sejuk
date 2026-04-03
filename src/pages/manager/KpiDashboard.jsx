@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const VIEWS = ['Weekly', 'Monthly', 'All Time']
@@ -7,6 +7,8 @@ export default function KpiDashboard() {
   const [view, setView] = useState('Weekly')
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const [summary, setSummary] = useState({
     totalJobs: 0,
     totalRevenue: 0,
@@ -15,24 +17,20 @@ export default function KpiDashboard() {
     totalPostponed: 0,
   })
 
-  useEffect(() => { fetchKpi() }, [view])
-
-  const fetchKpi = async () => {
-    setLoading(true)
+  const fetchKpi = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setRefreshing(true)
 
     const now = new Date()
     let fromDate = null
     if (view === 'Weekly') {
-      const d = new Date(now)
-      d.setDate(d.getDate() - 7)
-      fromDate = d.toISOString()
+      const d = new Date(now); d.setDate(d.getDate() - 7); fromDate = d.toISOString()
     } else if (view === 'Monthly') {
-      const d = new Date(now)
-      d.setDate(d.getDate() - 30)
-      fromDate = d.toISOString()
+      const d = new Date(now); d.setDate(d.getDate() - 30); fromDate = d.toISOString()
     }
 
-    let query = supabase
+    // Query 1: Completed orders for jobs/revenue/per-tech stats
+    let q1 = supabase
       .from('orders')
       .select(`
         assigned_technician_id,
@@ -43,14 +41,18 @@ export default function KpiDashboard() {
         technician:profiles!assigned_technician_id(name)
       `)
       .in('status', ['job_done', 'reviewed', 'closed'])
+    if (fromDate) q1 = q1.gte('completed_at', fromDate)
 
-    if (fromDate) query = query.gte('completed_at', fromDate)
+    // Query 2: All orders for total rescheduled/postponed counts (no date filter — always all-time)
+    const q2 = supabase
+      .from('orders')
+      .select('rescheduled_count, postponed_count, assigned_technician_id')
 
-    const { data: orders, error } = await query
+    const [{ data: orders, error }, { data: allOrders }] = await Promise.all([q1, q2])
 
-    if (error || !orders) { setLoading(false); return }
+    if (error || !orders) { setLoading(false); setRefreshing(false); return }
 
-    // Group by technician
+    // Group completed orders by technician
     const techMap = {}
     orders.forEach(o => {
       const tid = o.assigned_technician_id
@@ -65,17 +67,66 @@ export default function KpiDashboard() {
       techMap[tid].postponed += parseInt(o.postponed_count || 0)
     })
 
+    // Merge rescheduled/postponed from ALL orders (Q2) into techMap by technician
+    ;(allOrders || []).forEach(o => {
+      const tid = o.assigned_technician_id
+      if (!tid) return
+      if (techMap[tid]) {
+        // add on top of what Q1 already counted (avoid double-counting completed orders)
+        // Q2 has ALL orders; Q1 already added counts for completed ones — reset and recount from Q2
+      }
+    })
+
+    // Recount rescheduled/postponed per tech purely from Q2 (all orders)
+    const techReschedMap = {}
+    ;(allOrders || []).forEach(o => {
+      const tid = o.assigned_technician_id
+      if (!tid) return
+      if (!techReschedMap[tid]) techReschedMap[tid] = { rescheduled: 0, postponed: 0 }
+      techReschedMap[tid].rescheduled += parseInt(o.rescheduled_count || 0)
+      techReschedMap[tid].postponed += parseInt(o.postponed_count || 0)
+    })
+
+    // Apply Q2 counts to techMap (overwrite Q1 counts which only saw completed orders)
+    Object.keys(techMap).forEach(tid => {
+      if (techReschedMap[tid]) {
+        techMap[tid].rescheduled = techReschedMap[tid].rescheduled
+        techMap[tid].postponed = techReschedMap[tid].postponed
+      }
+    })
+
     const sorted = Object.values(techMap).sort((a, b) => b.jobs - a.jobs || b.revenue - a.revenue)
     setData(sorted)
+
+    // Total rescheduled/postponed from ALL orders
+    const totalRescheduled = (allOrders || []).reduce((s, o) => s + parseInt(o.rescheduled_count || 0), 0)
+    const totalPostponed = (allOrders || []).reduce((s, o) => s + parseInt(o.postponed_count || 0), 0)
+
     setSummary({
       totalJobs: orders.length,
       totalRevenue: orders.reduce((s, o) => s + parseFloat(o.final_amount || 0), 0),
       techCount: sorted.length,
-      totalRescheduled: sorted.reduce((s, t) => s + t.rescheduled, 0),
-      totalPostponed: sorted.reduce((s, t) => s + t.postponed, 0),
+      totalRescheduled,
+      totalPostponed,
     })
+
+    setLastUpdated(new Date())
     setLoading(false)
-  }
+    setRefreshing(false)
+  }, [view])
+
+  useEffect(() => { fetchKpi() }, [fetchKpi])
+
+  // Real-time subscription — refresh when any order changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('kpi-orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchKpi(true)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchKpi])
 
   const maxJobs = data.length > 0 ? Math.max(...data.map(d => d.jobs), 1) : 1
   const maxRevenue = data.length > 0 ? Math.max(...data.map(d => d.revenue), 1) : 1
@@ -97,19 +148,35 @@ export default function KpiDashboard() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-lg font-semibold text-gray-800">KPI Dashboard</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Technician performance overview</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}` : 'Technician performance overview'}
+            </p>
           </div>
-          <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
-            {VIEWS.map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
-                  view === v
-                    ? 'bg-white text-[#0e7fa8] shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
-                }`}>
-                {v}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            {/* Refresh button */}
+            <button
+              onClick={() => fetchKpi(true)}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <svg viewBox="0 0 24 24" className={`w-3.5 h-3.5 fill-gray-400 ${refreshing ? 'animate-spin' : ''}`}>
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              </svg>
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            {/* View toggle */}
+            <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
+              {VIEWS.map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
+                    view === v
+                      ? 'bg-white text-[#0e7fa8] shadow-sm'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}>
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -234,7 +301,7 @@ export default function KpiDashboard() {
                   </div>
                 </div>
 
-                {/* Charts row — Rescheduled & Postponed (always shown) */}
+                {/* Charts row — Rescheduled & Postponed */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
 
                   {/* Bar Chart — Rescheduled */}
@@ -294,38 +361,25 @@ export default function KpiDashboard() {
                       const hasDelays = tech.rescheduled > 0 || tech.postponed > 0
                       return (
                         <div key={tech.id} className={`flex items-center gap-4 ${i === 0 ? 'bg-yellow-50/40' : 'bg-white'}`} style={{ padding: '14px 20px' }}>
-                          {/* Rank */}
                           <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold ${badge.bg} ${badge.border} ${badge.text}`}>
                             {badge.emoji || i + 1}
                           </div>
-
-                          {/* Name */}
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold truncate ${i === 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                              {tech.name}
-                            </p>
+                            <p className={`text-sm font-semibold truncate ${i === 0 ? 'text-gray-900' : 'text-gray-700'}`}>{tech.name}</p>
                             <p className="text-xs text-gray-300 mt-0.5">{hasDelays ? 'Has delays' : 'No delays'}</p>
                           </div>
-
-                          {/* Jobs */}
                           <div className="text-center flex-shrink-0">
                             <p className="text-lg font-bold text-gray-800">{tech.jobs}</p>
                             <p className="text-xs text-gray-400">jobs</p>
                           </div>
-
-                          {/* Rescheduled */}
                           <div className="text-center flex-shrink-0" style={{ minWidth: '60px' }}>
                             <p className="text-sm font-bold text-orange-400">{tech.rescheduled}</p>
                             <p className="text-xs text-gray-400">reschedule</p>
                           </div>
-
-                          {/* Postponed */}
                           <div className="text-center flex-shrink-0" style={{ minWidth: '60px' }}>
                             <p className="text-sm font-bold text-red-400">{tech.postponed}</p>
                             <p className="text-xs text-gray-400">postponed</p>
                           </div>
-
-                          {/* Revenue */}
                           <div className="text-right flex-shrink-0" style={{ minWidth: '80px' }}>
                             <p className="text-sm font-bold text-emerald-600">RM {tech.revenue.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                             <p className="text-xs text-gray-400">revenue</p>
