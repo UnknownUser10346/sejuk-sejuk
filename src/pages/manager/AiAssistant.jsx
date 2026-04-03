@@ -176,22 +176,25 @@ export default function AIAssistant() {
       branch,
       summary: {
         totalOrders: orders?.length || 0,
-        totalRevenue: totalRevenue.toFixed(2),
+        totalRevenue: `RM ${totalRevenue.toFixed(2)}`,
         statusBreakdown: statusCounts,
         weeklyCompleted: weeklyOrders.length,
-        weeklyRevenue: weeklyRevenue.toFixed(2),
+        weeklyRevenue: `RM ${weeklyRevenue.toFixed(2)}`,
         monthlyCompleted: monthlyOrders.length,
-        monthlyRevenue: monthlyRevenue.toFixed(2),
+        monthlyRevenue: `RM ${monthlyRevenue.toFixed(2)}`,
         serviceTypeBreakdown: serviceTypes,
-        technicianStats: techStats,
+        technicianStats: Object.fromEntries(
+          Object.entries(techStats).map(([k, v]) => [k, { ...v, revenue: `RM ${v.revenue.toFixed(2)}` }])
+        ),
         technicianCount: techs?.length || 0,
       },
       orders: (orders || []).map(o => ({
         order_no: o.order_no,
+        customer_name: o.customer_name,
         status: o.status,
         service_type: o.service_type,
         technician: o.technician?.name || 'Unassigned',
-        amount: parseFloat(o.final_amount || 0).toFixed(2),
+        amount: `RM ${parseFloat(o.final_amount || 0).toFixed(2)}`,
         scheduled_date: o.scheduled_date,
         completed_at: o.completed_at,
         payment_method: o.payment_method,
@@ -232,7 +235,8 @@ ORDERS (last 90 days):
 ${JSON.stringify(branchData.orders, null, 2)}
 
 Answer questions based strictly on the data above. Be concise and helpful.
-If asked about specific orders, list their order_no and customer_name. Format numbers and currency clearly.
+If asked about specific orders, list their order_no and customer_name. 
+IMPORTANT: All currency amounts must be displayed in Malaysian Ringgit using the format "RM X,XXX.XX" — never use "$" or any other currency symbol.
 
 If the user asks something that is NOT related to the branch data, orders, technicians, or field service management, simply reply: "That question is not related to this system. I can only assist with branch orders, technicians, and job data."`
 

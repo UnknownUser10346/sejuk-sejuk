@@ -10,6 +10,7 @@ const statusBadge = {
   job_done:    { label: 'Completed',   className: 'bg-green-100 text-green-700' },
   reviewed:    { label: 'Reviewed',    className: 'bg-teal-100 text-teal-700' },
   closed:      { label: 'Closed',      className: 'bg-gray-100 text-gray-500' },
+  postponed:   { label: 'Postponed',   className: 'bg-orange-100 text-orange-700' },
 }
 
 const serviceLabel = {

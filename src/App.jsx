@@ -7,6 +7,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminOrders from './pages/admin/AdminOrders'
 import NewOrder from './pages/admin/NewOrder'
 import EditOrder from './pages/admin/EditOrder'
+import AdminOrderDetail from './pages/admin/AdminOrderDetail'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminBranches from './pages/admin/AdminBranches'
 import TechnicianLayout from './pages/technician/TechnicianLayout'
@@ -128,8 +129,9 @@ export default function App() {
           {/* Admin */}
           <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminDashboard /></AdminLayoutWrapper></ProtectedRoute>} />
           <Route path="/admin/orders" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminOrders /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/orders/:id/detail" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminOrderDetail /></AdminLayoutWrapper></ProtectedRoute>} />
           <Route path="/admin/orders/new" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><NewOrder /></AdminLayoutWrapper></ProtectedRoute>} />
-          <Route path="/admin/orders/:id" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/orders/:id/edit" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminUsers /></AdminLayoutWrapper></ProtectedRoute>} />
           <Route path="/admin/branches" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminBranches /></AdminLayoutWrapper></ProtectedRoute>} />
 

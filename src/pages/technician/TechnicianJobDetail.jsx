@@ -7,6 +7,7 @@ const statusBadge = {
   new:         { label: 'Pending',     className: 'bg-amber-100 text-amber-700' },
   assigned:    { label: 'Assigned',    className: 'bg-purple-100 text-purple-700' },
   in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
+  postponed:   { label: 'Postponed',   className: 'bg-orange-100 text-orange-700' },  // ← NEW
   job_done:    { label: 'Completed',   className: 'bg-green-100 text-green-700' },
   reviewed:    { label: 'Reviewed',    className: 'bg-teal-100 text-teal-700' },
   closed:      { label: 'Closed',      className: 'bg-gray-100 text-gray-500' },
@@ -76,8 +77,17 @@ export default function TechnicianJobDetail() {
   const [files, setFiles] = useState([])
   const [showPayment, setShowPayment] = useState(false)
 
+  // ── Postpone state ──────────────────────────────────────────
+  const [showPostpone, setShowPostpone] = useState(false)
+  const [postponeReason, setPostponeReason] = useState('')
+  const [postponing, setPostponing] = useState(false)
+  // ────────────────────────────────────────────────────────────
+
+  // ── Manager WA notification ──────────────────────────────────
+  const [managerWaUrl, setManagerWaUrl] = useState(null)
+  // ────────────────────────────────────────────────────────────
+
   useEffect(() => {
-    // ✅ Fetch job + technician name via JOIN (column is `name`, not `full_name`)
     supabase
       .from('orders')
       .select('*, technician:profiles!assigned_technician_id(name)')
@@ -135,6 +145,33 @@ export default function TechnicianJobDetail() {
     setStarting(false)
     if (data?.[0]) setJob(data[0])
   }
+
+  // ── Postpone handler ────────────────────────────────────────
+  const handlePostpone = async () => {
+    if (!postponeReason.trim()) return
+    setPostponing(true)
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        status:         'postponed',
+        postpone_reason: postponeReason.trim(),
+        postponed_count:  (job.postponed_count || 0) + 1,
+        postponed_at:    new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+    setPostponing(false)
+    if (error) {
+      alert(`Failed to postpone: ${error.message}`)
+      return
+    }
+    if (data?.[0]) {
+      setJob(data[0])
+      setShowPostpone(false)
+      setPostponeReason('')
+    }
+  }
+  // ────────────────────────────────────────────────────────────
 
   const uploadFiles = async () => {
     const urls = []
@@ -194,8 +231,45 @@ export default function TechnicianJobDetail() {
         completedAt
       )
       if (waUrl) window.open(waUrl, '_blank')
+
+      // 🔔 Build manager WA link (shown as button — don't auto-open second tab)
+      if (data[0].branch) {
+        const { data: managers } = await supabase
+          .from('profiles')
+          .select('name, phone')
+          .eq('role', 'manager')
+          .eq('branch', data[0].branch)
+          .limit(1)
+
+        const mgr = managers?.[0]
+        if (mgr?.phone) {
+          const mgrPhone = formatPhoneForWhatsApp(mgr.phone)
+          if (mgrPhone) {
+            const serviceType = serviceLabel[data[0].service_type] || data[0].service_type
+            const mgrMsg =
+              `Hi *${mgr.name}*,\n\n` +
+              `Job *${data[0].order_no}* has been completed by *${name}*.\n` +
+              `Customer: ${data[0].customer_name}\n` +
+              `Service: ${serviceType}\n` +
+              `Amount: RM ${parseFloat(data[0].final_amount ?? 0).toFixed(2)}\n\n` +
+              `Please review the job.`
+            setManagerWaUrl(`https://wa.me/${mgrPhone}?text=${encodeURIComponent(mgrMsg)}`)
+          }
+        }
+      }
     }
   }
+
+  // ── Back button (shared) ──
+  const BackButton = () => (
+    <button onClick={() => navigate('/technician/jobs')}
+      className="flex items-center gap-1 text-xs text-gray-500 mb-4">
+      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-gray-400">
+        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+      </svg>
+      Back to Jobs
+    </button>
+  )
 
   if (fetching) return (
     <div className="flex items-center justify-center py-20">
@@ -213,15 +287,66 @@ export default function TechnicianJobDetail() {
     </div>
   )
 
+  // ── Postponed view ──────────────────────────────────────────
+  if (job.status === 'postponed') return (
+    <div className="p-4">
+      <BackButton />
+
+      <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+        <span className="text-orange-500 text-xl">⏸</span>
+        <div>
+          <p className="text-sm font-medium text-orange-800">Job Postponed</p>
+          <p className="text-xs text-orange-600 mt-0.5">{job.order_no} has been postponed.</p>
+          {job.postpone_reason && (
+            <p className="text-xs text-orange-700 mt-1.5 bg-orange-100 rounded-lg px-2 py-1">
+              Reason: {job.postpone_reason}
+            </p>
+          )}
+          {job.postponed_count > 0 && (
+            <p className="text-xs text-orange-500 mt-1">
+              Postponed {job.postponed_count}× total
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-800">Job Details</h3>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusBadge[job.status]?.className}`}>
+            {statusBadge[job.status]?.label}
+          </span>
+        </div>
+        <div className="p-4 space-y-3">
+          {[
+            ['Order No',    job.order_no],
+            ['Customer',    job.customer_name],
+            ['Phone',       job.customer_phone],
+            ['Address',     job.customer_address],
+            ['Service',     serviceLabel[job.service_type] || job.service_type],
+            ['Quoted Price',`RM ${parseFloat(job.quoted_price).toFixed(2)}`],
+          ].map(([k, v]) => (
+            <div key={k} className="flex gap-3">
+              <p className="text-xs text-gray-400 w-28 flex-shrink-0">{k}</p>
+              <p className="text-xs text-gray-800 font-medium flex-1">{v}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-xs text-center text-gray-400 mt-4">
+        The admin will reschedule this job. You'll be notified when it's ready.
+      </p>
+    </div>
+  )
+  // ────────────────────────────────────────────────────────────
+
+  // ── Done / Reviewed / Closed view ──
   const isDone = ['job_done', 'reviewed', 'closed'].includes(job.status)
 
   if (isDone) return (
     <div className="p-4">
-      <button onClick={() => navigate('/technician/jobs')}
-        className="flex items-center gap-1 text-xs text-gray-500 mb-4">
-        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-gray-400"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        Back to Jobs
-      </button>
+      <BackButton />
 
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-start gap-3">
         <span className="text-green-500 text-xl">✓</span>
@@ -258,17 +383,27 @@ export default function TechnicianJobDetail() {
           ))}
         </div>
       </div>
+
+      {/* 🔔 Notify Manager button — only shown after fresh submission */}
+      {managerWaUrl && (
+        <a
+          href={managerWaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white text-sm font-medium rounded-xl active:scale-[0.98] transition-all"
+        >
+          📲 Notify Manager via WhatsApp
+        </a>
+      )}
     </div>
   )
 
+  // ── Active job view (assigned / in_progress) ──
   return (
     <div className="p-4">
-      <button onClick={() => navigate('/technician/jobs')}
-        className="flex items-center gap-1 text-xs text-gray-500 mb-4">
-        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-gray-400"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-        Back to Jobs
-      </button>
+      <BackButton />
 
+      {/* Job info card */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium text-[#0e7fa8]">{job.order_no}</span>
@@ -299,21 +434,32 @@ export default function TechnicianJobDetail() {
         )}
       </div>
 
+      {/* ── Assigned: Start Job + Postpone ── */}
       {job.status === 'assigned' && (
-        <div>
+        <div className="space-y-2">
           <button
             onClick={handleStartJob}
             disabled={starting}
             className="w-full py-3 bg-blue-600 text-white text-sm font-medium rounded-xl active:scale-[0.98] transition-transform disabled:opacity-60"
           >
-            {starting ? 'Starting...' : 'Start Job'}
+            {starting ? 'Starting...' : '▶ Start Job'}
           </button>
-          <p className="text-xs text-gray-400 text-center mt-2">
+
+          {/* ← NEW Postpone button */}
+          <button
+            onClick={() => setShowPostpone(true)}
+            className="w-full py-3 border border-orange-300 text-orange-600 text-sm font-medium rounded-xl active:scale-[0.98] transition-all hover:bg-orange-50"
+          >
+            ⏸ Postpone Job
+          </button>
+
+          <p className="text-xs text-gray-400 text-center pt-1">
             Tap "Start Job" to begin and view the completion form.
           </p>
         </div>
       )}
 
+      {/* ── In Progress: Completion form + Postpone ── */}
       {job.status === 'in_progress' && (
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Completion</p>
@@ -463,9 +609,70 @@ export default function TechnicianJobDetail() {
             {submitting ? 'Submitting...' : '✓ Mark Job as Done'}
           </button>
 
+          {/* ← NEW Postpone button (in_progress) */}
+          <button
+            onClick={() => setShowPostpone(true)}
+            className="w-full py-3 border border-orange-300 text-orange-600 text-sm font-medium rounded-xl active:scale-[0.98] transition-all hover:bg-orange-50"
+          >
+            ⏸ Postpone Job
+          </button>
+
           <p className="text-xs text-center text-gray-400">
             📲 WhatsApp will open automatically to notify the customer
           </p>
+        </div>
+      )}
+
+      {/* ── Postpone Modal (bottom sheet) ── */}
+      {showPostpone && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowPostpone(false); setPostponeReason('') } }}>
+          <div className="bg-white w-full max-w-md rounded-t-2xl p-5 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Postpone Job</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{job.order_no}</p>
+              </div>
+              <button
+                onClick={() => { setShowPostpone(false); setPostponeReason('') }}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-lg leading-none hover:bg-gray-200">
+                ×
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Please provide a reason for postponing this job. The admin will be able to reschedule it.
+            </p>
+
+            <textarea
+              value={postponeReason}
+              onChange={e => setPostponeReason(e.target.value)}
+              placeholder="e.g. Customer not available, parts not ready, access denied..."
+              rows={3}
+              autoFocus
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs outline-none resize-none focus:border-orange-400 focus:ring-1 focus:ring-orange-200 transition-colors"
+            />
+
+            {job.postponed_count > 0 && (
+              <p className="text-xs text-orange-500">
+                ⚠ This job has been postponed {job.postponed_count}× before.
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setShowPostpone(false); setPostponeReason('') }}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handlePostpone}
+                disabled={!postponeReason.trim() || postponing}
+                className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-xs font-medium disabled:opacity-50 active:scale-[0.98] transition-all hover:bg-orange-600">
+                {postponing ? 'Postponing...' : 'Confirm Postpone'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

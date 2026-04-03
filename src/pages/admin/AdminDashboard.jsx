@@ -18,6 +18,7 @@ const statusBadge = {
   job_done:    { label: 'Completed',   className: 'bg-green-100 text-green-800' },
   reviewed:    { label: 'Reviewed',    className: 'bg-teal-100 text-teal-800' },
   closed:      { label: 'Closed',      className: 'bg-gray-100 text-gray-600' },
+  postponed:   { label: 'Postponed',   className: 'bg-orange-100 text-orange-700' },
 }
 
 export default function AdminDashboard() {
@@ -125,8 +126,8 @@ export default function AdminDashboard() {
                   filtered.map(order => (
                     <tr
                       key={order.id}
-                      onClick={() => navigate(`/admin/orders/${order.id}`)}
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      
+                      className="border-b border-gray-100"
                     >
                       <td className="px-4 py-2 text-[#0e7fa8] font-medium text-xs">{order.order_no}</td>
                       <td className="px-4 py-2 text-xs text-gray-800">{order.customer_name}</td>
