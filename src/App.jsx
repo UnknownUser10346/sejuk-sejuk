@@ -17,6 +17,7 @@ import ManagerLayout from './pages/manager/ManagerLayout'
 import ManagerJobs from './pages/manager/ManagerJobs'
 import ManagerJobDetail from './pages/manager/ManagerJobDetail'
 import KpiDashboard from './pages/manager/KpiDashboard'
+import AiAssistant from './pages/manager/AiAssistant'
 
 function AdminLayout({ children }) {
   const { user, logout } = useAuth()
@@ -113,95 +114,38 @@ function AdminLayout({ children }) {
   )
 }
 
-function AdminLayoutWrapper({ children }) {
-  return <AdminLayout>{children}</AdminLayout>
-}
-
-function TechnicianLayoutWrapper({ children }) {
-  return <TechnicianLayout>{children}</TechnicianLayout>
-}
-
-function ManagerLayoutWrapper({ children }) {
-  return <ManagerLayout>{children}</ManagerLayout>
-}
+function AdminLayoutWrapper({ children }) { return <AdminLayout>{children}</AdminLayout> }
+function TechnicianLayoutWrapper({ children }) { return <TechnicianLayout>{children}</TechnicianLayout> }
+function ManagerLayoutWrapper({ children }) { return <ManagerLayout>{children}</ManagerLayout> }
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public */}
           <Route path="/" element={<Login />} />
 
           {/* Admin */}
-          <Route path="/admin" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><AdminDashboard /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/orders" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><AdminOrders /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/orders/new" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><NewOrder /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/orders/:id" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/users" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><AdminUsers /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/branches" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayoutWrapper><AdminBranches /></AdminLayoutWrapper>
-            </ProtectedRoute>
-          } />
+          <Route path="/admin" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminDashboard /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/orders" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminOrders /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/orders/new" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><NewOrder /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/orders/:id" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><EditOrder /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminUsers /></AdminLayoutWrapper></ProtectedRoute>} />
+          <Route path="/admin/branches" element={<ProtectedRoute allowedRole="admin"><AdminLayoutWrapper><AdminBranches /></AdminLayoutWrapper></ProtectedRoute>} />
 
           {/* Technician */}
           <Route path="/technician" element={<Navigate to="/technician/jobs" replace />} />
-          <Route path="/technician/jobs" element={
-            <ProtectedRoute allowedRole="technician">
-              <TechnicianLayoutWrapper><TechnicianJobs /></TechnicianLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/technician/jobs/:id" element={
-            <ProtectedRoute allowedRole="technician">
-              <TechnicianLayoutWrapper><TechnicianJobDetail /></TechnicianLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/technician/profile" element={
-            <ProtectedRoute allowedRole="technician">
-              <TechnicianLayoutWrapper><TechnicianProfile /></TechnicianLayoutWrapper>
-            </ProtectedRoute>
-          } />
+          <Route path="/technician/jobs" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianJobs /></TechnicianLayoutWrapper></ProtectedRoute>} />
+          <Route path="/technician/jobs/:id" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianJobDetail /></TechnicianLayoutWrapper></ProtectedRoute>} />
+          <Route path="/technician/profile" element={<ProtectedRoute allowedRole="technician"><TechnicianLayoutWrapper><TechnicianProfile /></TechnicianLayoutWrapper></ProtectedRoute>} />
 
           {/* Manager */}
           <Route path="/manager" element={<Navigate to="/manager/jobs" replace />} />
-          <Route path="/manager/kpi" element={
-            <ProtectedRoute allowedRole="manager">
-              <ManagerLayoutWrapper><KpiDashboard /></ManagerLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/manager/jobs" element={
-            <ProtectedRoute allowedRole="manager">
-              <ManagerLayoutWrapper><ManagerJobs /></ManagerLayoutWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="/manager/jobs/:id" element={
-            <ProtectedRoute allowedRole="manager">
-              <ManagerLayoutWrapper><ManagerJobDetail /></ManagerLayoutWrapper>
-            </ProtectedRoute>
-          } />
+          <Route path="/manager/jobs" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><ManagerJobs /></ManagerLayoutWrapper></ProtectedRoute>} />
+          <Route path="/manager/jobs/:id" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><ManagerJobDetail /></ManagerLayoutWrapper></ProtectedRoute>} />
+          <Route path="/manager/kpi" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><KpiDashboard /></ManagerLayoutWrapper></ProtectedRoute>} />
+          <Route path="/manager/ai" element={<ProtectedRoute allowedRole="manager"><ManagerLayoutWrapper><AiAssistant /></ManagerLayoutWrapper></ProtectedRoute>} />
 
-          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

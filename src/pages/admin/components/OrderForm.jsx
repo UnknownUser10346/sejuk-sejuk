@@ -26,6 +26,17 @@ const Field = ({ label, required, error, children }) => (
 export default function OrderForm({ form, errors, technicians, onChange, onSubmit, onReset, loading, submitLabel = '✓ Submit Order' }) {
   const set = (field, value) => onChange(field, value)
 
+  // When technician changes, auto-set branch from that technician's profile
+  const handleTechnicianChange = (techId) => {
+    set('assigned_technician_id', techId)
+    const tech = technicians.find(t => t.id === techId)
+    if (tech && tech.branch) {
+      set('branch', tech.branch)
+    } else {
+      set('branch', '')
+    }
+  }
+
   return (
     <div className="max-w-xl mx-auto space-y-4">
 
@@ -106,7 +117,7 @@ export default function OrderForm({ form, errors, technicians, onChange, onSubmi
           </div>
           <Field label="Assign Technician" required error={errors.assigned_technician_id}>
             <select value={form.assigned_technician_id}
-              onChange={e => set('assigned_technician_id', e.target.value)}
+              onChange={e => handleTechnicianChange(e.target.value)}
               className={inputCls('assigned_technician_id', errors)}>
               <option value="">Select technician</option>
               {technicians.map(t => (
@@ -114,6 +125,17 @@ export default function OrderForm({ form, errors, technicians, onChange, onSubmi
               ))}
             </select>
           </Field>
+
+          {/* Branch — auto-filled from technician, read-only */}
+          <Field label="Branch">
+            <input
+              value={form.branch || ''}
+              readOnly
+              placeholder="Auto-filled from technician"
+              className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs bg-gray-50 text-gray-500 cursor-not-allowed outline-none"
+            />
+          </Field>
+
           <Field label="Admin Notes" error={errors.admin_notes}>
             <textarea value={form.admin_notes}
               onChange={e => set('admin_notes', e.target.value)}

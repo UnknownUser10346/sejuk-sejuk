@@ -77,56 +77,21 @@ export default function KpiDashboard() {
     setLoading(false)
   }
 
-  const maxJobs = data.length > 0 ? Math.max(...data.map(d => d.jobs)) : 1
-  const maxRevenue = data.length > 0 ? Math.max(...data.map(d => d.revenue)) : 1
+  const maxJobs = data.length > 0 ? Math.max(...data.map(d => d.jobs), 1) : 1
+  const maxRevenue = data.length > 0 ? Math.max(...data.map(d => d.revenue), 1) : 1
   const maxRescheduled = data.length > 0 ? Math.max(...data.map(d => d.rescheduled), 1) : 1
   const maxPostponed = data.length > 0 ? Math.max(...data.map(d => d.postponed), 1) : 1
 
-  const rankStyle = (i) => {
-    if (i === 0) return 'bg-yellow-100 text-yellow-600'
-    if (i === 1) return 'bg-gray-200 text-gray-500'
-    if (i === 2) return 'bg-orange-100 text-orange-500'
-    return 'bg-gray-50 text-gray-400'
+  const rankBadge = (i) => {
+    if (i === 0) return { emoji: '🥇', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' }
+    if (i === 1) return { emoji: '🥈', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-500' }
+    if (i === 2) return { emoji: '🥉', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-500' }
+    return { emoji: null, bg: 'bg-white', border: 'border-gray-100', text: 'text-gray-400' }
   }
-
-  const rankEmoji = (i) => {
-    if (i === 0) return '🥇'
-    if (i === 1) return '🥈'
-    if (i === 2) return '🥉'
-    return null
-  }
-
-  const summaryCards = [
-    {
-      label: 'Jobs Completed', value: summary.totalJobs,
-      icon: <svg viewBox="0 0 24 24" className="w-5 h-5 fill-green-500"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>,
-      valueClass: 'text-green-600', bg: 'bg-green-50 border-green-100',
-    },
-    {
-      label: 'Total Revenue', value: `RM ${summary.totalRevenue.toFixed(2)}`,
-      icon: <svg viewBox="0 0 24 24" className="w-5 h-5 fill-[#0e7fa8]"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>,
-      valueClass: 'text-[#0e7fa8]', bg: 'bg-blue-50 border-blue-100',
-    },
-    {
-      label: 'Active Technicians', value: summary.techCount,
-      icon: <svg viewBox="0 0 24 24" className="w-5 h-5 fill-purple-500"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>,
-      valueClass: 'text-purple-600', bg: 'bg-purple-50 border-purple-100',
-    },
-    {
-      label: 'Rescheduled', value: summary.totalRescheduled,
-      icon: <svg viewBox="0 0 24 24" className="w-5 h-5 fill-amber-500"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>,
-      valueClass: 'text-amber-600', bg: 'bg-amber-50 border-amber-100',
-    },
-    {
-      label: 'Postponed', value: summary.totalPostponed,
-      icon: <svg viewBox="0 0 24 24" className="w-5 h-5 fill-red-400"><path d="M6 2v6l2 2-2 2v6h12v-6l-2-2 2-2V2H6zm10 9.5l2 2V18H6v-4.5l2-2-2-2V4h12v4.5l-2 2z"/></svg>,
-      valueClass: 'text-red-500', bg: 'bg-red-50 border-red-100',
-    },
-  ]
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-      <div className="max-w-3xl mx-auto">
+    <div className="flex-1 overflow-y-auto bg-white" style={{ padding: '24px' }}>
+      <div style={{ maxWidth: '860px', margin: '0 auto' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -134,11 +99,13 @@ export default function KpiDashboard() {
             <h1 className="text-lg font-semibold text-gray-800">KPI Dashboard</h1>
             <p className="text-xs text-gray-400 mt-0.5">Technician performance overview</p>
           </div>
-          <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-0.5">
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
             {VIEWS.map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={`px-3 py-1.5 text-xs rounded-lg transition-colors font-medium ${
-                  view === v ? 'bg-[#0e7fa8] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                  view === v
+                    ? 'bg-white text-[#0e7fa8] shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
                 }`}>
                 {v}
               </button>
@@ -150,148 +117,222 @@ export default function KpiDashboard() {
           <div className="text-center py-24 text-gray-400 text-xs">Loading KPI data...</div>
         ) : (
           <>
-            {/* Summary Cards — row 1: 3 cols */}
-            <div className="grid grid-cols-3 gap-4 mb-3">
-              {summaryCards.slice(0, 3).map(c => (
-                <div key={c.label} className={`border rounded-xl p-4 ${c.bg}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs text-gray-500">{c.label}</p>
-                    {c.icon}
-                  </div>
-                  <p className={`text-2xl font-bold ${c.valueClass}`}>{c.value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{view}</p>
-                </div>
-              ))}
-            </div>
+            {/* Summary Cards — 5 columns */}
+            <div className="grid grid-cols-5 gap-3 mb-6">
 
-            {/* Summary Cards — row 2: 2 cols */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {summaryCards.slice(3).map(c => (
-                <div key={c.label} className={`border rounded-xl p-4 ${c.bg}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs text-gray-500">{c.label}</p>
-                    {c.icon}
-                  </div>
-                  <p className={`text-2xl font-bold ${c.valueClass}`}>{c.value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{view}</p>
+              {/* Jobs Completed */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-green-50 flex items-center justify-center mb-3">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-green-500">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                  </svg>
                 </div>
-              ))}
+                <p className="text-xl font-bold text-gray-800">{summary.totalJobs}</p>
+                <p className="text-xs text-gray-400 mt-1">Jobs Completed</p>
+              </div>
+
+              {/* Total Revenue */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center mb-3">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-[#0e7fa8]">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                  </svg>
+                </div>
+                <p className="text-xl font-bold text-gray-800">RM {summary.totalRevenue.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                <p className="text-xs text-gray-400 mt-1">Total Revenue</p>
+              </div>
+
+              {/* Active Technicians */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center mb-3">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-purple-500">
+                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                  </svg>
+                </div>
+                <p className="text-xl font-bold text-gray-800">{summary.techCount}</p>
+                <p className="text-xs text-gray-400 mt-1">Active Technicians</p>
+              </div>
+
+              {/* Rescheduled */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center mb-3">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-orange-400">
+                    <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+                  </svg>
+                </div>
+                <p className="text-xl font-bold text-gray-800">{summary.totalRescheduled}</p>
+                <p className="text-xs text-gray-400 mt-1">Rescheduled</p>
+              </div>
+
+              {/* Postponed */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center mb-3">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-red-400">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                  </svg>
+                </div>
+                <p className="text-xl font-bold text-gray-800">{summary.totalPostponed}</p>
+                <p className="text-xs text-gray-400 mt-1">Postponed</p>
+              </div>
             </div>
 
             {data.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-xl text-center py-16">
+              <div className="bg-white border border-gray-100 rounded-2xl text-center py-16 shadow-sm">
                 <p className="text-4xl mb-3">📊</p>
                 <p className="text-sm font-medium text-gray-500">No completed jobs for this period</p>
                 <p className="text-xs text-gray-400 mt-1">Try switching to Monthly or All Time</p>
               </div>
             ) : (
               <>
-                {/* Bar Chart — Jobs Completed */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Jobs Completed</h3>
-                  <div className="space-y-3">
-                    {data.map((tech) => (
-                      <div key={tech.id} className="flex items-center gap-3">
-                        <p className="text-xs text-gray-600 w-32 truncate flex-shrink-0">{tech.name}</p>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-[#0e7fa8] h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: `${(tech.jobs / maxJobs) * 100}%` }} />
+                {/* Charts row — Jobs & Revenue */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+
+                  {/* Bar Chart — Jobs Completed */}
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 rounded-full bg-[#0e7fa8]"></div>
+                      <h3 className="text-sm font-semibold text-gray-700">Jobs Completed</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {data.map((tech) => (
+                        <div key={tech.id} className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500 w-24 truncate flex-shrink-0">{tech.name}</p>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2">
+                            <div
+                              className="bg-[#0e7fa8] h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${(tech.jobs / maxJobs) * 100}%` }}
+                            />
+                          </div>
+                          <p className="text-xs font-bold text-gray-700 w-5 text-right flex-shrink-0">{tech.jobs}</p>
                         </div>
-                        <p className="text-xs font-semibold text-gray-700 w-8 text-right flex-shrink-0">{tech.jobs}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bar Chart — Revenue */}
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                      <h3 className="text-sm font-semibold text-gray-700">Revenue (RM)</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {data.map((tech) => (
+                        <div key={tech.id} className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500 w-24 truncate flex-shrink-0">{tech.name}</p>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2">
+                            <div
+                              className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${(tech.revenue / maxRevenue) * 100}%` }}
+                            />
+                          </div>
+                          <p className="text-xs font-bold text-gray-700 w-14 text-right flex-shrink-0">
+                            {tech.revenue.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Bar Chart — Revenue */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue Generated (RM)</h3>
-                  <div className="space-y-3">
-                    {data.map((tech) => (
-                      <div key={tech.id} className="flex items-center gap-3">
-                        <p className="text-xs text-gray-600 w-32 truncate flex-shrink-0">{tech.name}</p>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: `${(tech.revenue / maxRevenue) * 100}%` }} />
-                        </div>
-                        <p className="text-xs font-semibold text-gray-700 w-20 text-right flex-shrink-0">
-                          RM {tech.revenue.toFixed(0)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* Charts row — Rescheduled & Postponed (always shown) */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
 
-                {/* Bar Chart — Rescheduled */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Rescheduled Jobs</h3>
-                  <div className="space-y-3">
-                    {data.map((tech) => (
-                      <div key={tech.id} className="flex items-center gap-3">
-                        <p className="text-xs text-gray-600 w-32 truncate flex-shrink-0">{tech.name}</p>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-amber-400 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: tech.rescheduled > 0 ? `${(tech.rescheduled / maxRescheduled) * 100}%` : '0%' }} />
+                  {/* Bar Chart — Rescheduled */}
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                      <h3 className="text-sm font-semibold text-gray-700">Rescheduled</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {data.map((tech) => (
+                        <div key={tech.id} className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500 w-24 truncate flex-shrink-0">{tech.name}</p>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2">
+                            <div
+                              className="bg-orange-400 h-2 rounded-full transition-all duration-500"
+                              style={{ width: tech.rescheduled > 0 ? `${(tech.rescheduled / maxRescheduled) * 100}%` : '0%' }}
+                            />
+                          </div>
+                          <p className="text-xs font-bold text-orange-500 w-5 text-right flex-shrink-0">{tech.rescheduled}</p>
                         </div>
-                        <p className="text-xs font-semibold text-gray-700 w-8 text-right flex-shrink-0">{tech.rescheduled}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Bar Chart — Postponed */}
-                <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Postponed Jobs</h3>
-                  <div className="space-y-3">
-                    {data.map((tech) => (
-                      <div key={tech.id} className="flex items-center gap-3">
-                        <p className="text-xs text-gray-600 w-32 truncate flex-shrink-0">{tech.name}</p>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div className="bg-red-400 h-2.5 rounded-full transition-all duration-500"
-                            style={{ width: tech.postponed > 0 ? `${(tech.postponed / maxPostponed) * 100}%` : '0%' }} />
+                  {/* Bar Chart — Postponed */}
+                  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                      <h3 className="text-sm font-semibold text-gray-700">Postponed</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {data.map((tech) => (
+                        <div key={tech.id} className="flex items-center gap-3">
+                          <p className="text-xs text-gray-500 w-24 truncate flex-shrink-0">{tech.name}</p>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2">
+                            <div
+                              className="bg-red-400 h-2 rounded-full transition-all duration-500"
+                              style={{ width: tech.postponed > 0 ? `${(tech.postponed / maxPostponed) * 100}%` : '0%' }}
+                            />
+                          </div>
+                          <p className="text-xs font-bold text-red-500 w-5 text-right flex-shrink-0">{tech.postponed}</p>
                         </div>
-                        <p className="text-xs font-semibold text-gray-700 w-8 text-right flex-shrink-0">{tech.postponed}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Leaderboard */}
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-50" style={{ padding: '16px 20px' }}>
                     <h3 className="text-sm font-semibold text-gray-700">🏆 Leaderboard</h3>
                     <p className="text-xs text-gray-400">Ranked by jobs completed</p>
                   </div>
                   <div className="divide-y divide-gray-50">
-                    {data.map((tech, i) => (
-                      <div key={tech.id} className={`px-5 py-3.5 flex items-center gap-4 ${i === 0 ? 'bg-yellow-50/50' : ''}`}>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${rankStyle(i)}`}>
-                          {rankEmoji(i) || i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${i === 0 ? 'text-gray-900' : 'text-gray-700'}`}>
-                            {tech.name}
-                          </p>
-                          <div className="flex gap-3 mt-0.5">
-                            {tech.rescheduled > 0 && (
-                              <p className="text-xs text-amber-500">🔁 {tech.rescheduled} rescheduled</p>
-                            )}
-                            {tech.postponed > 0 && (
-                              <p className="text-xs text-red-400">⏸ {tech.postponed} postponed</p>
-                            )}
-                            {tech.rescheduled === 0 && tech.postponed === 0 && (
-                              <p className="text-xs text-gray-300">No delays</p>
-                            )}
+                    {data.map((tech, i) => {
+                      const badge = rankBadge(i)
+                      const hasDelays = tech.rescheduled > 0 || tech.postponed > 0
+                      return (
+                        <div key={tech.id} className={`flex items-center gap-4 ${i === 0 ? 'bg-yellow-50/40' : 'bg-white'}`} style={{ padding: '14px 20px' }}>
+                          {/* Rank */}
+                          <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold ${badge.bg} ${badge.border} ${badge.text}`}>
+                            {badge.emoji || i + 1}
+                          </div>
+
+                          {/* Name */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold truncate ${i === 0 ? 'text-gray-900' : 'text-gray-700'}`}>
+                              {tech.name}
+                            </p>
+                            <p className="text-xs text-gray-300 mt-0.5">{hasDelays ? 'Has delays' : 'No delays'}</p>
+                          </div>
+
+                          {/* Jobs */}
+                          <div className="text-center flex-shrink-0">
+                            <p className="text-lg font-bold text-gray-800">{tech.jobs}</p>
+                            <p className="text-xs text-gray-400">jobs</p>
+                          </div>
+
+                          {/* Rescheduled */}
+                          <div className="text-center flex-shrink-0" style={{ minWidth: '60px' }}>
+                            <p className="text-sm font-bold text-orange-400">{tech.rescheduled}</p>
+                            <p className="text-xs text-gray-400">reschedule</p>
+                          </div>
+
+                          {/* Postponed */}
+                          <div className="text-center flex-shrink-0" style={{ minWidth: '60px' }}>
+                            <p className="text-sm font-bold text-red-400">{tech.postponed}</p>
+                            <p className="text-xs text-gray-400">postponed</p>
+                          </div>
+
+                          {/* Revenue */}
+                          <div className="text-right flex-shrink-0" style={{ minWidth: '80px' }}>
+                            <p className="text-sm font-bold text-emerald-600">RM {tech.revenue.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-gray-400">revenue</p>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-bold text-gray-800">
-                            {tech.jobs}<span className="text-xs font-normal text-gray-400 ml-1">jobs</span>
-                          </p>
-                          <p className="text-xs text-emerald-600 font-medium">RM {tech.revenue.toFixed(2)}</p>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               </>

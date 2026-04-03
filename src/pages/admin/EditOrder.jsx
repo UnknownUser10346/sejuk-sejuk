@@ -25,7 +25,6 @@ export default function EditOrder() {
   const [savedOrder, setSavedOrder] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
-  // Fetch technicians + order on mount
   useEffect(() => {
     supabase.from('profiles').select('*').eq('role', 'technician')
       .then(({ data }) => setTechnicians(data || []))
@@ -37,19 +36,19 @@ export default function EditOrder() {
       .single()
       .then(({ data, error }) => {
         if (error || !data) { setNotFound(true); setFetching(false); return }
-        // Map DB row → form shape
         setForm({
-          order_no:                data.order_no,
-          scheduled_date:          data.scheduled_date ?? '',
-          customer_name:           data.customer_name ?? '',
-          customer_phone:          data.customer_phone ?? '',
-          customer_address:        data.customer_address ?? '',
-          problem_description:     data.problem_description ?? '',
-          service_type:            data.service_type ?? '',
-          quoted_price:            data.quoted_price !== null ? String(data.quoted_price) : '',
-          assigned_technician_id:  data.assigned_technician_id ?? '',
-          admin_notes:             data.admin_notes ?? '',
-          status:                  data.status,
+          order_no:               data.order_no,
+          scheduled_date:         data.scheduled_date ?? '',
+          customer_name:          data.customer_name ?? '',
+          customer_phone:         data.customer_phone ?? '',
+          customer_address:       data.customer_address ?? '',
+          problem_description:    data.problem_description ?? '',
+          service_type:           data.service_type ?? '',
+          quoted_price:           data.quoted_price !== null ? String(data.quoted_price) : '',
+          assigned_technician_id: data.assigned_technician_id ?? '',
+          branch:                 data.branch ?? '',    // ← load existing branch
+          admin_notes:            data.admin_notes ?? '',
+          status:                 data.status,
         })
         setFetching(false)
       })
@@ -82,7 +81,6 @@ export default function EditOrder() {
     if (!validate()) return
     setLoading(true)
 
-    // Recalculate status only if currently 'new' and technician assigned
     const newStatus =
       form.status === 'new' && form.assigned_technician_id
         ? 'assigned'
@@ -99,6 +97,7 @@ export default function EditOrder() {
         service_type:            form.service_type,
         quoted_price:            parseFloat(form.quoted_price),
         assigned_technician_id:  form.assigned_technician_id || null,
+        branch:                  form.branch || null,   // ← save branch
         admin_notes:             form.admin_notes,
         status:                  newStatus,
       })
@@ -118,7 +117,6 @@ export default function EditOrder() {
   }
 
   const handleReset = () => {
-    // Re-fetch original to reset form
     setFetching(true)
     setSaved(false)
     supabase
@@ -137,6 +135,7 @@ export default function EditOrder() {
           service_type:           data.service_type ?? '',
           quoted_price:           data.quoted_price !== null ? String(data.quoted_price) : '',
           assigned_technician_id: data.assigned_technician_id ?? '',
+          branch:                 data.branch ?? '',    // ← reload branch
           admin_notes:            data.admin_notes ?? '',
           status:                 data.status,
         })
@@ -216,6 +215,7 @@ export default function EditOrder() {
                   ['Service Type', savedOrder.service_type],
                   ['Quoted Price', `RM ${parseFloat(savedOrder.quoted_price).toFixed(2)}`],
                   ['Technician',   tech?.name || '—'],
+                  ['Branch',       savedOrder.branch || '—'],
                   ['Scheduled',    savedOrder.scheduled_date],
                 ].map(([k, v]) => (
                   <div key={k}>

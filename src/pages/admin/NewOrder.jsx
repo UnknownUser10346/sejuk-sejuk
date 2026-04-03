@@ -22,6 +22,7 @@ const emptyForm = () => ({
   service_type: '',
   quoted_price: '',
   assigned_technician_id: '',
+  branch: '',          // ← auto-filled from technician
   admin_notes: '',
 })
 
@@ -46,13 +47,13 @@ export default function NewOrder() {
 
   const validate = () => {
     const required = {
-      customer_name:    'Customer name is required',
-      customer_phone:   'Phone number is required',
-      customer_address: 'Address is required',
-      problem_description: 'Problem description is required',
-      service_type:     'Please select a service type',
-      quoted_price:     'Quoted price is required',
-      assigned_technician_id: 'Please assign a technician',
+      customer_name:           'Customer name is required',
+      customer_phone:          'Phone number is required',
+      customer_address:        'Address is required',
+      problem_description:     'Problem description is required',
+      service_type:            'Please select a service type',
+      quoted_price:            'Quoted price is required',
+      assigned_technician_id:  'Please assign a technician',
     }
     const newErrors = {}
     for (const [key, msg] of Object.entries(required)) {
@@ -69,17 +70,18 @@ export default function NewOrder() {
     const { data, error } = await supabase
       .from('orders')
       .insert([{
-        order_no:             form.order_no,
-        scheduled_date:       form.scheduled_date,
-        customer_name:        form.customer_name,
-        customer_phone:       form.customer_phone,
-        customer_address:     form.customer_address,
-        problem_description:  form.problem_description,
-        service_type:         form.service_type,
-        quoted_price:         parseFloat(form.quoted_price),
+        order_no:               form.order_no,
+        scheduled_date:         form.scheduled_date,
+        customer_name:          form.customer_name,
+        customer_phone:         form.customer_phone,
+        customer_address:       form.customer_address,
+        problem_description:    form.problem_description,
+        service_type:           form.service_type,
+        quoted_price:           parseFloat(form.quoted_price),
         assigned_technician_id: form.assigned_technician_id || null,
-        admin_notes:          form.admin_notes,
-        status:               form.assigned_technician_id ? 'assigned' : 'new',
+        branch:                 form.branch || null,   // ← save branch
+        admin_notes:            form.admin_notes,
+        status:                 form.assigned_technician_id ? 'assigned' : 'new',
       }])
       .select('*, assigned_technician:profiles!orders_assigned_technician_id_fkey(name)')
 
@@ -138,6 +140,7 @@ export default function NewOrder() {
                   ['Service Type', submittedOrder.service_type],
                   ['Quoted Price', `RM ${parseFloat(submittedOrder.quoted_price).toFixed(2)}`],
                   ['Technician',   tech?.name || '—'],
+                  ['Branch',       submittedOrder.branch || '—'],
                   ['Scheduled',    submittedOrder.scheduled_date],
                   ['Status',       submittedOrder.assigned_technician_id ? 'Assigned' : 'Pending'],
                 ].map(([k, v]) => (
