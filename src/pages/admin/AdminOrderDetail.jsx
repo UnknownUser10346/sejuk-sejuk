@@ -104,8 +104,8 @@ export default function AdminOrderDetail() {
           </div>
         )}
 
-        {/* 2x2 Card Grid */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Cards — 1 column on mobile, 2 columns on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
           {/* Order Info */}
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-4">
