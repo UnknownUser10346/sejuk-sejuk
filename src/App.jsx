@@ -139,14 +139,21 @@ function AdminLayout({ children }) {
       </div>
 
       {/* ── MOBILE OVERLAY ── */}
-      <div className={`md:hidden fixed inset-0 z-50 flex transition-all duration-300 ${mobileOpen ? 'visible' : 'invisible'}`}>
+      <div
+        className="md:hidden fixed inset-0 z-50 flex"
+        style={{ pointerEvents: mobileOpen ? 'auto' : 'none' }}
+      >
         {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${mobileOpen ? 'opacity-100' : 'opacity-0'}`}
+          className="absolute inset-0 bg-black/50"
+          style={{ opacity: mobileOpen ? 1 : 0, transition: 'opacity 0.3s ease' }}
           onClick={() => setMobileOpen(false)}
         />
         {/* Drawer */}
-        <div className={`relative w-64 bg-[#0e7fa8] flex flex-col h-full z-10 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div
+          className="relative w-64 bg-[#0e7fa8] flex flex-col h-full z-10"
+          style={{ transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.3s ease' }}
+        >
           <SidebarContent isMobile={true} />
         </div>
       </div>
