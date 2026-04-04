@@ -139,16 +139,17 @@ function AdminLayout({ children }) {
       </div>
 
       {/* ── MOBILE OVERLAY ── */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          {/* Drawer */}
-          <div className="relative w-64 bg-[#0e7fa8] flex flex-col h-full z-10">
-            <SidebarContent isMobile={true} />
-          </div>
+      <div className={`md:hidden fixed inset-0 z-50 flex transition-all duration-300 ${mobileOpen ? 'visible' : 'invisible'}`}>
+        {/* Backdrop */}
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${mobileOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMobileOpen(false)}
+        />
+        {/* Drawer */}
+        <div className={`relative w-64 bg-[#0e7fa8] flex flex-col h-full z-10 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <SidebarContent isMobile={true} />
         </div>
-      )}
+      </div>
 
       {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -207,9 +208,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        
       </BrowserRouter>
     </AuthProvider>
   )
 }
-
